@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 15px;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        @media (min-width: 768px) {
+            .container {
+                max-width: 500px;
+            }
+        }
+        .tab-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .tab-actions {
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+            margin-left: 5px;
+        }
+        .tab-actions.show {
+            display: block;
+        }
+        .tab-action-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .tab-action-btn:hover {
+            background: #f0f0f0;
+        }
+        .tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 5px;
+            padding: 10px;
+            border: 1px solid #ddd; /* 添加边框 */
+            border-radius: 8px; /* 添加圆角 */
+            height: 150px;
+            align-items: flex-start; /* 让按钮靠上对齐 */
+        }
+
+        .tab {
+            padding: 8px 15px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 5px;
+            white-space: nowrap;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .tab-menu-btn {
+            padding: 2px 6px;
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: 14px;
+        }
+        .new-tab-btn {
+            padding: 8px 15px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            height: 36px; /* 固定高度 */
+            align-self: flex-start; /* 让按钮靠上 */
+        }
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .add-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+            padding: 8px;
+            background: #f8f8f8;
+            border-radius: 8px;
+        }
+        .task-text {
+            flex-grow: 1;
+            font-size: 16px;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .complete-btn {
+            background: #4CAF50;
+        }
+        .delete-btn {
+            background: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tabs" id="tabs">
+            <button class="new-tab-btn" onclick="addNewTab()">+ 新标签页</button>
+        </div>
+        <div id="content">
+            <textarea id="new-task" placeholder="添加任务（每行一个）"></textarea>
+            <button class="add-btn" onclick="addTasks()">添加任务</button>
+            <ul id="task-list" style="list-style: none; padding: 0;"></ul>
+        </div>
+    </div>
+
+    <script>
+        let tabs = [];
+        let currentTab = null;
+        let activeTabActions = null;
+
+        function createTab(name, tasks = []) {
+            return {
+                id: Date.now() + Math.random(),
+                name: name,
+                tasks: tasks.map(task => ({...task, id: Date.now() + Math.random()}))
+            };
+        }
+
+        function addNewTab() {
+            const name = prompt('请输入标签页名称：');
+            if (name) {
+                const tab = createTab(name);
+                tabs.push(tab);
+                renderTabs();
+                switchTab(tab.id);
+            }
+        }
+
+        function showTabActions(tabId, event) {
+            event.stopPropagation();
+            closeTabActions();
+            
+            const tab = tabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            const actions = document.createElement('div');
+            actions.className = 'tab-actions show';
+            actions.innerHTML = `
+                <button class="tab-action-btn" onclick="renameTab(${tab.id})">重命名</button>
+                <button class="tab-action-btn" onclick="duplicateTab(${tab.id})">复制标签页</button>
+                <button class="tab-action-btn" onclick="deleteTab(${tab.id})">删除标签页</button>
+            `;
+            
+            const tabElement = event.target.closest('.tab');
+            tabElement.appendChild(actions);
+            activeTabActions = actions;
+        }
+
+        function renameTab(tabId) {
+            const tab = tabs.find(t => t.id === tabId);
+            if (tab) {
+                const newName = prompt('请输入新的标签页名称：', tab.name);
+                if (newName && newName.trim() !== '') {
+                    tab.name = newName.trim();
+                    renderTabs();
+                }
+            }
+        }
+
+        function closeTabActions() {
+            if (activeTabActions) {
+                activeTabActions.remove();
+                activeTabActions = null;
+            }
+        }
+
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.tab-actions')) {
+                closeTabActions();
+            }
+        });
+
+        function duplicateTab(tabId) {
+            const sourceTab = tabs.find(t => t.id === tabId);
+            if (sourceTab) {
+                const newTab = createTab(`${sourceTab.name} 副本`, sourceTab.tasks);
+                tabs.push(newTab);
+                renderTabs();
+                switchTab(newTab.id);
+            }
+        }
+
+        function deleteTab(tabId) {
+            const index = tabs.findIndex(t => t.id === tabId);
+            if (index !== -1) {
+                tabs.splice(index, 1);
+                if (currentTab && currentTab.id === tabId) {
+                    currentTab = tabs[Math.min(index, tabs.length - 1)] || null;
+                }
+                renderTabs();
+                renderTasks();
+            }
+        }
+
+        function renderTabs() {
+            const tabsContainer = document.getElementById('tabs');
+            const newTabBtn = tabsContainer.querySelector('.new-tab-btn');
+            tabsContainer.innerHTML = '';
+            tabsContainer.appendChild(newTabBtn);
+
+            tabs.forEach(tab => {
+                const tabWrapper = document.createElement('div');
+                tabWrapper.className = 'tab-wrapper';
+                
+                const button = document.createElement('button');
+                button.className = `tab ${currentTab && tab.id === currentTab.id ? 'active' : ''}`;
+                button.innerHTML = `
+                    <span onclick="switchTab(${tab.id})">${tab.name}</span>
+                    <button class="tab-menu-btn" onclick="showTabActions(${tab.id}, event)">⋮</button>
+                `;
+                
+                tabWrapper.appendChild(button);
+                tabsContainer.appendChild(tabWrapper);
+            });
+        }
+
+        function switchTab(tabId) {
+            closeTabActions();
+            currentTab = tabs.find(tab => tab.id === tabId);
+            renderTabs();
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('task-list');
+            taskList.innerHTML = '';
+            
+            if (!currentTab) return;
+
+            currentTab.tasks.forEach(task => {
+                const listItem = document.createElement('li');
+                
+                const taskSpan = document.createElement('span');
+                taskSpan.textContent = task.text;
+                taskSpan.className = `task-text ${task.completed ? 'completed' : ''}`;
+                
+                const completeBtn = document.createElement('button');
+                completeBtn.textContent = '✓';
+                completeBtn.className = 'action-btn complete-btn';
+                completeBtn.onclick = () => toggleTask(task.id);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '×';
+                deleteBtn.className = 'action-btn delete-btn';
+                deleteBtn.onclick = () => deleteTask(task.id);
+                
+                listItem.appendChild(taskSpan);
+                listItem.appendChild(completeBtn);
+                listItem.appendChild(deleteBtn);
+                taskList.appendChild(listItem);
+            });
+        }
+
+        function addTasks() {
+            if (!currentTab) {
+                alert('请先创建标签页');
+                return;
+            }
+
+            const taskInput = document.getElementById('new-task');
+            const tasks = taskInput.value.split('\n')
+                .filter(text => text.trim() !== '')
+                .map(text => ({
+                    id: Date.now() + Math.random(),
+                    text: text.trim(),
+                    completed: false
+                }));
+            
+            currentTab.tasks.push(...tasks);
+            taskInput.value = '';
+            renderTasks();
+        }
+
+        function toggleTask(taskId) {
+            const task = currentTab.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                renderTasks();
+            }
+        }
+
+        function deleteTask(taskId) {
+            currentTab.tasks = currentTab.tasks.filter(t => t.id !== taskId);
+            renderTasks();
+        }
+    </script>
+</body>
+</html>
