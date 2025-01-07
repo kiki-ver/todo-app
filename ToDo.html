@@ -57,13 +57,16 @@
             background: #f0f0f0;
         }
         .tabs {
-            height: 100px;
             display: flex;
             overflow-x: auto;
             gap: 5px;
-            padding: 10px 0;
-            border-bottom: 1px solid #ddd;
+            padding: 10px;
+            border: 1px solid #ddd; /* 添加边框 */
+            border-radius: 8px; /* 添加圆角 */
+            height: 150px;
+            align-items: flex-start; /* 让按钮靠上对齐 */
         }
+
         .tab {
             padding: 8px 15px;
             background: #f0f0f0;
@@ -92,6 +95,8 @@
             color: white;
             border: none;
             border-radius: 5px;
+            height: 36px; /* 固定高度 */
+            align-self: flex-start; /* 让按钮靠上 */
         }
         textarea {
             width: 100%;
@@ -193,6 +198,7 @@
             const actions = document.createElement('div');
             actions.className = 'tab-actions show';
             actions.innerHTML = `
+                <button class="tab-action-btn" onclick="renameTab(${tab.id})">重命名</button>
                 <button class="tab-action-btn" onclick="duplicateTab(${tab.id})">复制标签页</button>
                 <button class="tab-action-btn" onclick="deleteTab(${tab.id})">删除标签页</button>
             `;
@@ -200,6 +206,17 @@
             const tabElement = event.target.closest('.tab');
             tabElement.appendChild(actions);
             activeTabActions = actions;
+        }
+
+        function renameTab(tabId) {
+            const tab = tabs.find(t => t.id === tabId);
+            if (tab) {
+                const newName = prompt('请输入新的标签页名称：', tab.name);
+                if (newName && newName.trim() !== '') {
+                    tab.name = newName.trim();
+                    renderTabs();
+                }
+            }
         }
 
         function closeTabActions() {
